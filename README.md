@@ -28,6 +28,17 @@ cat tsubo-bookmarklet.bookmarklet.txt
 2. ブラウザのブックマークの URL 欄に貼り付ける。
 3. 対応サイトの物件一覧または詳細ページを開いてブックマークを実行すると坪単価が表示されます。
 
+
+## Tampermonkey での自動実行
+
+Athome / ふれんず / SUUMO で自動実行したい場合は、同梱している `tsubo-bookmarklet.user.js` を Tampermonkey に読み込ませます。
+
+1. Tampermonkey の「新規スクリプトを追加」を開く。
+2. ファイル `tsubo-bookmarklet.user.js` の内容を貼り付け、保存。
+3. 対象サイト (Athome/ふれんず/SUUMO) にアクセスすると、自動的に坪単価バッジが挿入されます。
+   - Angular などにより DOM が後から描画されるページにも追随できるよう、スクリプト内で MutationObserver による再実行を行っています。
+   - 手動ブックマークレットと同じロジック (`tsubo-bookmarklet.min.js` をラップ) を使用しています。
+
 ## 対応ページ
 
 - ふれんず: 物件一覧 (PC/スマホ)、詳細ページ
