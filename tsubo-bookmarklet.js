@@ -102,7 +102,13 @@
     node.appendChild(badge);
   };
 
+  const isAthome = /(?:^|\.)athome\.co\.jp$/.test(location.hostname);
+  const athomeDetailHost = isAthome ? document.querySelector('athome-csite-pc-property-detail-ryutsu-sell-living, athome-csite-sp-property-detail-ryutsu-sell-living') : null;
+  const athomeListHost = isAthome ? document.querySelector('athome-csite-pc-property-list-sell-living, athome-csite-sp-property-list-sell-living') : null;
+  const isAthomeList = !!athomeListHost && !athomeDetailHost;
+
   const appendListBadges = ({ items, priceLabels, areaLabels, className, containerSelector, fallbackMap }) => {
+    if (isAthomeList && className === 'tb') return false;
     if (!items.length) return false;
     let any = false;
     items.forEach(item => {
@@ -265,13 +271,7 @@
     });
   }
 
-  const detailHost = document.querySelector('athome-csite-pc-property-detail-ryutsu-sell-living, athome-csite-sp-property-detail-ryutsu-sell-living');
-  const listHost = document.querySelector('athome-csite-pc-property-list-sell-living, athome-csite-sp-property-list-sell-living');
-  const isAthome = /(?:^|\.)athome\.co\.jp$/.test(location.hostname);
-  let isDetailPage = true;
-  if (isAthome && listHost && !detailHost) {
-    isDetailPage = false;
-  }
+  const isDetailPage = isAthome ? !!athomeDetailHost : true;
 
   if (isDetailPage) {
     const basePriceSelectors = ['span.price-area'];
