@@ -1,0 +1,12 @@
+{
+  "name": "tsubo-bookmarklets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:bookmarklet": "terser tsubo-bookmarklet.js -cm --toplevel --output tsubo-bookmarklet.min.js && node scripts/make-bookmarklet.js"
+  },
+  "devDependencies": {
+    "terser": "^5.44.0"
+  }
+}
