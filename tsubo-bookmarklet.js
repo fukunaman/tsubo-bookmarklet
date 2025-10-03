@@ -106,6 +106,7 @@
     if (!items.length) return false;
     let any = false;
     items.forEach(item => {
+      if (item.dataset.tbBadgeInjected === '1') return;
       if (item.querySelector('.tb')) return;
       const host = item.querySelector('.tb-host') || item;
       let priceInfo = findValue(item, priceLabels);
@@ -132,9 +133,19 @@
       const badgeHost = target.closest('.property-price, .property-info__price, [class*="price"], .tb-host') || target;
       if (badgeHost && badgeHost.querySelector('.tb')) return;
       appendBadge(target, per, className, containerSelector);
+      item.dataset.tbBadgeInjected = '1';
       any = true;
     });
     return any;
+  };
+
+  const collectNodes = selectors => {
+    const nodes = [];
+    selectors.forEach(sel => {
+      if (!sel) return;
+      document.querySelectorAll(sel).forEach(node => nodes.push(node));
+    });
+    return [...new Set(nodes)];
   };
 
   const appendDetailBadges = ({ priceNodes, areaRoot, area, className, fallbackPrice }) => {
@@ -230,6 +241,7 @@
   const athomeCards = [...document.querySelectorAll('.card-box')];
   if (athomeCards.length) {
     athomeCards.forEach(card => {
+      if (card.dataset.tbBadgeInjected === '1') return;
       if (card.querySelector('.tb')) return;
       const priceEl = card.querySelector('.property-price');
       const areaBlock = [...card.querySelectorAll('.property-detail-table__block')].find(block => {
@@ -249,90 +261,117 @@
       }
       if (!price || !area || !priceEl) return;
       appendBadge(priceEl, price / area.tsubo / 10000, 'tb tb-a', null);
+      card.dataset.tbBadgeInjected = '1';
     });
   }
 
-  appendDetailBadges({
-    priceNodes: [...document.querySelectorAll('span.price-area')],
-    areaRoot: document,
-    className: 'tb'
-  });
-
-  const detailAreaCandidates = [
-    document.querySelector('.futureInfo'),
-    document.querySelector('.detail-sum-table'),
-    document.querySelector('.bukken-detail__table'),
-    document.querySelector('[component-page__basic-info-table]'),
-    document
-  ];
-  let detailAreaRoot = null;
-  for (const root of detailAreaCandidates) {
-    if (!root) continue;
-    const info = findValue(root, ['専有面積', '面積']);
-    if (info && parseArea(info.text)) {
-      detailAreaRoot = root;
-      break;
-    }
+  const detailHost = document.querySelector('athome-csite-pc-property-detail-ryutsu-sell-living, athome-csite-sp-property-detail-ryutsu-sell-living');
+  const listHost = document.querySelector('athome-csite-pc-property-list-sell-living, athome-csite-sp-property-list-sell-living');
+  const isAthome = /(?:^|\.)athome\.co\.jp$/.test(location.hostname);
+  let isDetailPage = true;
+  if (isAthome && listHost && !detailHost) {
+    isDetailPage = false;
   }
 
-  let detailArea = null;
-  const futureInfoAreaNode = document.querySelector('.futureInfo_menseki_disp');
-  detailArea = parseArea(futureInfoAreaNode && futureInfoAreaNode.textContent);
-  if (!detailArea && detailAreaRoot) {
-    const info = findValue(detailAreaRoot, ['専有面積', '面積']);
-    detailArea = parseArea(info && info.text);
-  }
-  if (!detailArea) {
-    const info = findValue(document, ['専有面積']);
-    detailArea = parseArea(info && info.text);
-  }
-
-  if (athomeDetailArea) {
-    detailArea = athomeDetailArea;
-  }
-
-  if (detailArea) {
-    const priceNodes = [...new Set([
-      ...document.querySelectorAll('p.mt7.b'),
-      ...document.querySelectorAll('.bukken-detail__price'),
-      ...document.querySelectorAll('.bukken-detail__price-value'),
-      ...document.querySelectorAll('.futureInfo_list.futureInfo_kakaku'),
-      ...document.querySelectorAll('.futureInfo .card-price'),
-      ...document.querySelectorAll('[component-property-info-header] .card-price')
-    ])];
-
+  if (isDetailPage) {
+    const basePriceSelectors = ['span.price-area'];
+    if (isAthome) basePriceSelectors.push('p.price-main');
     appendDetailBadges({
-      priceNodes,
-      areaRoot: detailAreaRoot || document,
-      area: detailArea,
-      className: 'tb tb-s',
-      fallbackPrice: athomeDetailPrice
+      priceNodes: collectNodes(basePriceSelectors),
+      areaRoot: document,
+      className: 'tb'
     });
 
-    if (athomeDetailPrice && detailArea.tsubo) {
-      const per = athomeDetailPrice / detailArea.tsubo / 10000;
-      const extraTargets = [...new Set(
-        [...document.querySelectorAll('.property-detail-top-area .card-price, .property-info__price, .property-detail-top-area [class*="price"], .property-summary__list .rent, .main-contents__box .card-price, p.price-main')]
-      )];
-      let appended = false;
-      for (const target of extraTargets) {
-        if (!target) continue;
-        if (target.querySelector('.tb')) {
-          appended = true;
-          break;
-        }
-        appendBadge(target, per, 'tb tb-a', null);
-        if (target.querySelector('.tb')) {
-          appended = true;
-          break;
-        }
+    const detailPriceNode = isAthome ? document.querySelector('.property-summary__list .rent') : null;
+    if (!athomeDetailPrice && detailPriceNode) {
+      const parsed = parsePrice(norm(detailPriceNode.textContent));
+      if (parsed) athomeDetailPrice = parsed;
+    }
+
+    const detailAreaCandidates = [
+      document.querySelector('.futureInfo'),
+      document.querySelector('.detail-sum-table'),
+      document.querySelector('.property-summary__list'),
+      document.querySelector('.bukken-detail__table'),
+      document.querySelector('[component-page__basic-info-table]'),
+      document
+    ];
+    let detailAreaRoot = null;
+    for (const root of detailAreaCandidates) {
+      if (!root) continue;
+      const info = findValue(root, ['専有面積', '面積']);
+      if (info && parseArea(info.text)) {
+        detailAreaRoot = root;
+        break;
       }
-      if (!appended) {
-        const fallbackHost = document.querySelector('.property-detail-top-area') || document.body;
-        const container = document.createElement('div');
-        container.style.marginTop = '8px';
-        fallbackHost.insertBefore(container, fallbackHost.firstChild);
-        appendBadge(container, per, 'tb tb-a', null);
+    }
+
+    let detailArea = null;
+    const futureInfoAreaNode = document.querySelector('.futureInfo_menseki_disp');
+    detailArea = parseArea(futureInfoAreaNode && futureInfoAreaNode.textContent);
+    if (!detailArea && detailAreaRoot) {
+      const info = findValue(detailAreaRoot, ['専有面積', '面積']);
+      detailArea = parseArea(info && info.text);
+    }
+    if (!detailArea) {
+      const info = findValue(document, ['専有面積']);
+      detailArea = parseArea(info && info.text);
+    }
+
+    if (athomeDetailArea) {
+      detailArea = athomeDetailArea;
+    }
+
+    if (detailArea) {
+      const priceSelectors = [
+        'p.mt7.b',
+        '.bukken-detail__price',
+        '.bukken-detail__price-value',
+        '.futureInfo_list.futureInfo_kakaku',
+        '.futureInfo .card-price',
+        '[component-property-info-header] .card-price'
+      ];
+      if (isAthome) priceSelectors.push('.property-summary__list .rent', 'p.price-main');
+      const priceNodes = collectNodes(priceSelectors);
+
+      appendDetailBadges({
+        priceNodes,
+        areaRoot: detailAreaRoot || document,
+        area: detailArea,
+        className: 'tb tb-s',
+        fallbackPrice: athomeDetailPrice
+      });
+
+      if (isAthome && athomeDetailPrice && detailArea.tsubo) {
+        const per = athomeDetailPrice / detailArea.tsubo / 10000;
+        const extraSelectors = [
+          '.property-detail-top-area .card-price',
+          '.property-info__price',
+          '.property-detail-top-area [class*="price"]',
+          '.main-contents__box .card-price'
+        ];
+        extraSelectors.unshift('p.price-main');
+        const extraTargets = collectNodes(extraSelectors);
+        let appended = false;
+        for (const target of extraTargets) {
+          if (!target) continue;
+          if (target.querySelector('.tb')) {
+            appended = true;
+            break;
+          }
+          appendBadge(target, per, 'tb tb-a', null);
+          if (target.querySelector('.tb')) {
+            appended = true;
+            break;
+          }
+        }
+        if (!appended) {
+          const fallbackHost = document.querySelector('.property-detail-top-area') || document.body;
+          const container = document.createElement('div');
+          container.style.marginTop = '8px';
+          fallbackHost.insertBefore(container, fallbackHost.firstChild);
+          appendBadge(container, per, 'tb tb-a', null);
+        }
       }
     }
   }

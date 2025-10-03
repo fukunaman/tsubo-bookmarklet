@@ -19,7 +19,6 @@ pnpm run build:bookmarklet
 ビルドすると `tsubo-bookmarklet.js` を基に `tsubo-bookmarklet.min.js` が生成されます。ブックマークレットとして利用したい場合は以下を実行して 1 行コードを出力してください。
 
 ```bash
-node scripts/make-bookmarklet.js
 cat tsubo-bookmarklet.bookmarklet.txt
 ```
 
