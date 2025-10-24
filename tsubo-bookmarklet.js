@@ -106,6 +106,8 @@
   const athomeDetailHost = isAthome ? document.querySelector('athome-csite-pc-property-detail-ryutsu-sell-living, athome-csite-sp-property-detail-ryutsu-sell-living') : null;
   const athomeListHost = isAthome ? document.querySelector('athome-csite-pc-property-list-sell-living, athome-csite-sp-property-list-sell-living') : null;
   const isAthomeList = !!athomeListHost && !athomeDetailHost;
+  const isSekisui = location.hostname === 'sumusite.sekisuihouse.co.jp';
+  const isSekisuiDetail = isSekisui && !!document.querySelector('.estateInfo_detail');
 
   const appendListBadges = ({ items, priceLabels, areaLabels, className, containerSelector, fallbackMap }) => {
     if (isAthomeList && className === 'tb') return false;
@@ -271,11 +273,32 @@
     });
   }
 
-  const isDetailPage = isAthome ? !!athomeDetailHost : true;
+  if (isSekisui) {
+    const sekisuiListItems = [...document.querySelectorAll('.estateBlock_list > li')];
+    sekisuiListItems.forEach(item => {
+      if (item.dataset.tbBadgeInjected === '1') return;
+      if (!item.querySelector('.estate')) return;
+      if (item.querySelector('.tb')) {
+        item.dataset.tbBadgeInjected = '1';
+        return;
+      }
+      const priceContainer = item.querySelector('.estate dl dd');
+      const price = parsePrice(priceContainer && priceContainer.textContent);
+      const areaCandidate = [...item.querySelectorAll('.estate ul li')].find(li => /[㎡m²坪]/.test(li.textContent || ''));
+      const area = parseArea(areaCandidate && areaCandidate.textContent);
+      if (!price || !area) return;
+      const target = priceContainer || areaCandidate || item;
+      appendBadge(target, price / area.tsubo / 10000, 'tb tb-s', null);
+      item.dataset.tbBadgeInjected = '1';
+    });
+  }
+
+  const isDetailPage = isAthome ? !!athomeDetailHost : (isSekisui ? isSekisuiDetail : true);
 
   if (isDetailPage) {
     const basePriceSelectors = ['span.price-area'];
     if (isAthome) basePriceSelectors.push('p.price-main');
+    if (isSekisui) basePriceSelectors.push('.estateInfo_detail .priceArea');
     appendDetailBadges({
       priceNodes: collectNodes(basePriceSelectors),
       areaRoot: document,
@@ -332,6 +355,7 @@
         '[component-property-info-header] .card-price'
       ];
       if (isAthome) priceSelectors.push('.property-summary__list .rent', 'p.price-main');
+      if (isSekisui) priceSelectors.push('.estateInfo_detail .priceArea');
       const priceNodes = collectNodes(priceSelectors);
 
       appendDetailBadges({

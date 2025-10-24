@@ -1,18 +1,419 @@
 // ==UserScript==
-// @name         坪単価バッジ（Athome/Fureins/SUUMO）
+// @name         坪単価バッジ（Athome/Fureins/SUUMO/積水ハウス）
 // @namespace    https://github.com/s
-// @version      1.0.4
-// @description  Athome・ふれんず・SUUMOで坪単価バッジを自動表示します
+// @version      1.0.5
+// @description  Athome・ふれんず・SUUMO・積水ハウス不動産で坪単価バッジを自動表示します
 // @match        https://www.athome.co.jp/*
 // @match        https://m.athome.co.jp/*
 // @match        https://www.f-takken.com/freins/*
 // @match        https://suumo.jp/*
+// @match        https://sumusite.sekisuihouse.co.jp/*
 // @grant        none
 // @run-at       document-end
-// ==/UserScript==
 
 (() => {
-  const main = () => {const e="tsubo-shared-style";if(!document.getElementById(e)){const t=document.createElement("style");t.id=e,t.textContent=".tb{display:block;margin-top:4px;padding:2px 6px;border-radius:4px;font-weight:600;font-size:.82em;line-height:1.4;background:rgba(255,165,0,.16);color:#b45309}.tb-s{background:rgba(59,130,246,.18);color:#1d4ed8}.tb-a{background:rgba(244,114,182,.2);color:#be185d}",document.head.appendChild(t)}const t=3.305785,r=e=>e?e.replace(/\s+/g," ").trim():"",n=e=>{if(!e)return null;const t=e.replace(/\s+/g,"");let r=0;const n=t.match(/([\d.,]+)億/);n&&(r+=1e8*parseFloat(n[1].replace(/,/g,"")));const o=t.match(/([\d.,]+)万/);if(o&&(r+=1e4*parseFloat(o[1].replace(/,/g,""))),!n&&!o){const e=t.replace(/[^\d]/g,"");e&&(r+=parseInt(e,10))}return r||null},o=e=>{if(!e)return null;const r=e.replace(/㎡/g,"m2").replace(/m²/g,"m2");let n=null;const o=r.match(/([\d.,]+)m2/i);o&&(n=parseFloat(o[1].replace(/,/g,"")));let l=null;const a=r.match(/([\d.,]+)\s*坪/);return a&&(l=parseFloat(a[1].replace(/,/g,""))),!l&&n&&(l=n/t),l&&!n&&(n=l*t),l?{sqm:n,tsubo:l}:null},l=(e,t,n)=>{for(const o of e){if(!r(o.textContent).includes(t))continue;let e=n(o);if(e)return{element:e,text:r(e.textContent)}}return null},a=(e,t)=>{if(!e)return null;const n=Array.isArray(t)?t:[t];for(const t of n){const r=l(e.querySelectorAll("td.category"),t,e=>{let t=e.nextElementSibling;for(;t&&"TD"===t.tagName&&!t.classList.contains("value");)t=t.nextElementSibling;return t});if(r)return r}for(const t of n){const r=l(e.querySelectorAll("dt"),t,e=>{let t=e.nextElementSibling;for(;t&&"DD"!==t.tagName;)t=t.nextElementSibling;return t});if(r)return r}for(const t of n){const r=l(e.querySelectorAll("th"),t,e=>{let t=e.nextElementSibling;for(;t&&"TD"!==t.tagName;)t=t.nextElementSibling;return t});if(r)return r}for(const t of n)for(const n of e.querySelectorAll("span,strong,div,p,dd,td,li")){const e=r(n.textContent);if(e&&e.includes(t))return{element:n,text:e}}return null},c=(e,t,r,n)=>{if(!e)return;let o=e;if(n&&e.closest){const t=e.closest(n);t&&(o=t)}if(o.querySelector&&o.querySelector(":scope > .tb"))return;if(o.style){o.style.whiteSpace="normal";"inline"===getComputedStyle(o).display&&(o.style.display="inline-block")}const l=document.createElement("div");l.className=r,l.textContent=(t>=100?t.toFixed(0):t.toFixed(1))+"万円/坪",o.appendChild(l)},s=/(?:^|\.)athome\.co\.jp$/.test(location.hostname),i=s?document.querySelector("athome-csite-pc-property-detail-ryutsu-sell-living, athome-csite-sp-property-detail-ryutsu-sell-living"):null,u=!!(s?document.querySelector("athome-csite-pc-property-list-sell-living, athome-csite-sp-property-list-sell-living"):null)&&!i,p=({items:e,priceLabels:t,areaLabels:l,className:s,containerSelector:i,fallbackMap:p})=>{if(u&&"tb"===s)return!1;if(!e.length)return!1;let d=!1;return e.forEach(e=>{if("1"===e.dataset.tbBadgeInjected)return;if(e.querySelector(".tb"))return;const u=e.querySelector(".tb-host")||e;let b=a(e,t),f=a(e,l);const m=e.querySelector(".bukken-cassette__kakaku"),y=e.querySelector(".bukken-cassette__menseki");!b&&m&&(b={element:m,text:r(m.textContent)}),!f&&y&&(f={element:y,text:r(y.textContent)});let k=n(b&&b.text),g=o(f&&f.text);if((!k||!g)&&p){const t=e.querySelector("input[id]")?.id||e.querySelector("[data-bukken-no]")?.getAttribute("data-bukken-no");if(t&&p.has(t)){const e=p.get(t);!k&&e.price&&(k=e.price),!g&&e.area&&(g=e.area)}}if(!k||!g)return;const S=k/g.tsubo/1e4,h=b&&b.element||f&&f.element||u,q=h.closest('.property-price, .property-info__price, [class*="price"], .tb-host')||h;q&&q.querySelector(".tb")||(c(h,S,s,i),e.dataset.tbBadgeInjected="1",d=!0)}),d},d=e=>{const t=[];return e.forEach(e=>{e&&document.querySelectorAll(e).forEach(e=>t.push(e))}),[...new Set(t)]},b=({priceNodes:e,areaRoot:t,area:l,className:s,fallbackPrice:i})=>{if(!e.length)return!1;let u=l;if(!u){const e=a(t,["専有面積","面積"]);u=o(e&&e.text)}if(!u)return!1;let p=!1;return e.forEach(e=>{if(e.querySelector(".tb"))return;const t=n(r(e.textContent))||i;if(!t)return;const o=t/u.tsubo/1e4;e.style&&(e.style.whiteSpace="normal","inline"===getComputedStyle(e).display&&(e.style.display="inline-block")),c(e,o,s,null),p=!0}),p},f=new Map;let m=null,y=null;const k=document.querySelector("#serverApp-state");if(k)try{const e=JSON.parse(k.textContent||"{}"),r=Object.keys(e).find(e=>e.includes("/bukken/list/"));if(r&&e[r]&&e[r].body){const t=JSON.parse(e[r].body).data?.bukkenData?.bukkenList;Array.isArray(t)&&t.forEach(e=>{const t=e?.bukkenNo;if(!t)return;const r=n(e?.kakaku?e.kakaku+"万円":null);let l=null;e?.areaInfo&&(l=o(e.areaInfo.tsubo||e.areaInfo.area)),f.set(t,{price:r,area:l})})}const l=Object.keys(e).find(e=>e.includes("property-detail-ryutsu"));if(l&&e[l]&&e[l].body){const r=JSON.parse(e[l].body).data,n=r?.propertyData?.areaInfo,o=r?.propertyData?.contract?.price?.price;if(n)if(n.tsubo){const e=parseFloat(n.tsubo.replace(/[^\d.]/g,""));Number.isNaN(e)||(m={tsubo:e,sqm:n.area&&parseFloat(n.area.replace(/[^\d.]/g,""))||e*t})}else if(n.area){const e=parseFloat(n.area.replace(/[^\d.]/g,""));Number.isNaN(e)||(m={sqm:e,tsubo:e/t})}if(o){const e=Number(o);Number.isNaN(e)||(y=e)}}}catch(e){console.warn("athome state parse failed",e)}p({items:[...document.querySelectorAll("li.item.list-tpl, li.item.smartphone-tpl, [component-bukken-list-item], athome-csite-sp-part-bukken-card-ryutsu-sell-living")],priceLabels:["価格"],areaLabels:["専有面積","面積"],className:"tb",containerSelector:"td.value,dd",fallbackMap:f}),p({items:[...document.querySelectorAll("#js-bukkenList .property_unit, .bukken-cassette__body")],priceLabels:["販売価格","価格"],areaLabels:["専有面積","面積"],className:"tb tb-s",containerSelector:"dd,td.value,.dottable-value,.property_unit-info,.bukken-cassette__kakaku,.bukken-cassette__menseki",fallbackMap:f});const g=[...document.querySelectorAll(".card-box")];g.length&&g.forEach(e=>{if("1"===e.dataset.tbBadgeInjected)return;if(e.querySelector(".tb"))return;const t=e.querySelector(".property-price"),l=[...e.querySelectorAll(".property-detail-table__block")].find(e=>{const t=e.querySelector("strong");return t&&r(t.textContent).includes("専有面積")}),a=l&&l.textContent;let s=n(t&&t.textContent),i=o(a);if((!s||!i)&&f.size){const t=e.querySelector("input[id]")?.id||e.querySelector("[data-bukken-no]")?.getAttribute("data-bukken-no");if(t&&f.has(t)){const e=f.get(t);!s&&e.price&&(s=e.price),!i&&e.area&&(i=e.area)}}s&&i&&t&&(c(t,s/i.tsubo/1e4,"tb tb-a",null),e.dataset.tbBadgeInjected="1")});if(!s||!!i){const e=["span.price-area"];s&&e.push("p.price-main"),b({priceNodes:d(e),areaRoot:document,className:"tb"});const t=s?document.querySelector(".property-summary__list .rent"):null;if(!y&&t){const e=n(r(t.textContent));e&&(y=e)}const l=[document.querySelector(".futureInfo"),document.querySelector(".detail-sum-table"),document.querySelector(".property-summary__list"),document.querySelector(".bukken-detail__table"),document.querySelector("[component-page__basic-info-table]"),document];let i=null;for(const e of l){if(!e)continue;const t=a(e,["専有面積","面積"]);if(t&&o(t.text)){i=e;break}}let u=null;const p=document.querySelector(".futureInfo_menseki_disp");if(u=o(p&&p.textContent),!u&&i){const e=a(i,["専有面積","面積"]);u=o(e&&e.text)}if(!u){const e=a(document,["専有面積"]);u=o(e&&e.text)}if(m&&(u=m),u){const e=["p.mt7.b",".bukken-detail__price",".bukken-detail__price-value",".futureInfo_list.futureInfo_kakaku",".futureInfo .card-price","[component-property-info-header] .card-price"];s&&e.push(".property-summary__list .rent","p.price-main");if(b({priceNodes:d(e),areaRoot:i||document,area:u,className:"tb tb-s",fallbackPrice:y}),s&&y&&u.tsubo){const e=y/u.tsubo/1e4,t=[".property-detail-top-area .card-price",".property-info__price",'.property-detail-top-area [class*="price"]',".main-contents__box .card-price"];t.unshift("p.price-main");const r=d(t);let n=!1;for(const t of r)if(t){if(t.querySelector(".tb")){n=!0;break}if(c(t,e,"tb tb-a",null),t.querySelector(".tb")){n=!0;break}}if(!n){const t=document.querySelector(".property-detail-top-area")||document.body,r=document.createElement("div");r.style.marginTop="8px",t.insertBefore(r,t.firstChild),c(r,e,"tb tb-a",null)}}}}};
+  const main = () => {
+    const STYLE_ID = 'tsubo-shared-style';
+    if (!document.getElementById(STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = '.tb{display:block;margin-top:4px;padding:2px 6px;border-radius:4px;font-weight:600;font-size:.82em;line-height:1.4;background:rgba(255,165,0,.16);color:#b45309}.tb-s{background:rgba(59,130,246,.18);color:#1d4ed8}.tb-a{background:rgba(244,114,182,.2);color:#be185d}';
+      document.head.appendChild(style);
+    }
+  
+    const TUBO = 3.305785;
+    const norm = text => (text ? text.replace(/\s+/g, ' ').trim() : '');
+    const parsePrice = text => {
+      if (!text) return null;
+      const cleaned = text.replace(/\s+/g, '');
+      let total = 0;
+      const oku = cleaned.match(/([\d.,]+)億/);
+      if (oku) total += parseFloat(oku[1].replace(/,/g, '')) * 1e8;
+      const man = cleaned.match(/([\d.,]+)万/);
+      if (man) total += parseFloat(man[1].replace(/,/g, '')) * 1e4;
+      if (!oku && !man) {
+        const yen = cleaned.replace(/[^\d]/g, '');
+        if (yen) total += parseInt(yen, 10);
+      }
+      return total || null;
+    };
+    const parseArea = text => {
+      if (!text) return null;
+      const normalized = text.replace(/㎡/g, 'm2').replace(/m²/g, 'm2');
+      let sqm = null;
+      const sqmMatch = normalized.match(/([\d.,]+)m2/i);
+      if (sqmMatch) sqm = parseFloat(sqmMatch[1].replace(/,/g, ''));
+      let tsubo = null;
+      const tsuboMatch = normalized.match(/([\d.,]+)\s*坪/);
+      if (tsuboMatch) tsubo = parseFloat(tsuboMatch[1].replace(/,/g, ''));
+      if (!tsubo && sqm) tsubo = sqm / TUBO;
+      if (tsubo && !sqm) sqm = tsubo * TUBO;
+      return tsubo ? { sqm, tsubo } : null;
+    };
+  
+    const matchLabel = (nodes, label, nextSelector) => {
+      for (const node of nodes) {
+        if (!norm(node.textContent).includes(label)) continue;
+        let value = nextSelector(node);
+        if (!value) continue;
+        return { element: value, text: norm(value.textContent) };
+      }
+      return null;
+    };
+  
+    const findValue = (root, labels) => {
+      if (!root) return null;
+      const candidates = Array.isArray(labels) ? labels : [labels];
+      for (const label of candidates) {
+        const result = matchLabel(root.querySelectorAll('td.category'), label, node => {
+          let val = node.nextElementSibling;
+          while (val && val.tagName === 'TD' && !val.classList.contains('value')) val = val.nextElementSibling;
+          return val;
+        });
+        if (result) return result;
+      }
+      for (const label of candidates) {
+        const result = matchLabel(root.querySelectorAll('dt'), label, node => {
+          let dd = node.nextElementSibling;
+          while (dd && dd.tagName !== 'DD') dd = dd.nextElementSibling;
+          return dd;
+        });
+        if (result) return result;
+      }
+      for (const label of candidates) {
+        const result = matchLabel(root.querySelectorAll('th'), label, node => {
+          let td = node.nextElementSibling;
+          while (td && td.tagName !== 'TD') td = td.nextElementSibling;
+          return td;
+        });
+        if (result) return result;
+      }
+      for (const label of candidates) {
+        for (const el of root.querySelectorAll('span,strong,div,p,dd,td,li')) {
+          const text = norm(el.textContent);
+          if (text && text.includes(label)) return { element: el, text };
+        }
+      }
+      return null;
+    };
+  
+    const appendBadge = (target, per, className, containerSelector) => {
+      if (!target) return;
+      let node = target;
+      if (containerSelector && target.closest) {
+        const container = target.closest(containerSelector);
+        if (container) node = container;
+      }
+      if (node.querySelector && node.querySelector(':scope > .tb')) return;
+      if (node.style) {
+        node.style.whiteSpace = 'normal';
+        const display = getComputedStyle(node).display;
+        if (display === 'inline') node.style.display = 'inline-block';
+      }
+      const badge = document.createElement('div');
+      badge.className = className;
+      badge.textContent = (per >= 100 ? per.toFixed(0) : per.toFixed(1)) + '万円/坪';
+      node.appendChild(badge);
+    };
+  
+    const isAthome = /(?:^|\.)athome\.co\.jp$/.test(location.hostname);
+    const athomeDetailHost = isAthome ? document.querySelector('athome-csite-pc-property-detail-ryutsu-sell-living, athome-csite-sp-property-detail-ryutsu-sell-living') : null;
+    const athomeListHost = isAthome ? document.querySelector('athome-csite-pc-property-list-sell-living, athome-csite-sp-property-list-sell-living') : null;
+    const isAthomeList = !!athomeListHost && !athomeDetailHost;
+    const isSekisui = location.hostname === 'sumusite.sekisuihouse.co.jp';
+    const isSekisuiDetail = isSekisui && !!document.querySelector('.estateInfo_detail');
+  
+    const appendListBadges = ({ items, priceLabels, areaLabels, className, containerSelector, fallbackMap }) => {
+      if (isAthomeList && className === 'tb') return false;
+      if (!items.length) return false;
+      let any = false;
+      items.forEach(item => {
+        if (item.dataset.tbBadgeInjected === '1') return;
+        if (item.querySelector('.tb')) return;
+        const host = item.querySelector('.tb-host') || item;
+        let priceInfo = findValue(item, priceLabels);
+        let areaInfo = findValue(item, areaLabels);
+        const priceFallback = item.querySelector('.bukken-cassette__kakaku');
+        const areaFallback = item.querySelector('.bukken-cassette__menseki');
+        if (!priceInfo && priceFallback) priceInfo = { element: priceFallback, text: norm(priceFallback.textContent) };
+        if (!areaInfo && areaFallback) areaInfo = { element: areaFallback, text: norm(areaFallback.textContent) };
+        const price = parsePrice(priceInfo && priceInfo.text);
+        const area = parseArea(areaInfo && areaInfo.text);
+        let resolvedPrice = price;
+        let resolvedArea = area;
+        if ((!resolvedPrice || !resolvedArea) && fallbackMap) {
+          const key = item.querySelector('input[id]')?.id || item.querySelector('[data-bukken-no]')?.getAttribute('data-bukken-no');
+          if (key && fallbackMap.has(key)) {
+            const extra = fallbackMap.get(key);
+            if (!resolvedPrice && extra.price) resolvedPrice = extra.price;
+            if (!resolvedArea && extra.area) resolvedArea = extra.area;
+          }
+        }
+        if (!resolvedPrice || !resolvedArea) return;
+        const per = resolvedPrice / resolvedArea.tsubo / 10000;
+        const target = (priceInfo && priceInfo.element) || (areaInfo && areaInfo.element) || host;
+        const badgeHost = target.closest('.property-price, .property-info__price, [class*="price"], .tb-host') || target;
+        if (badgeHost && badgeHost.querySelector('.tb')) return;
+        appendBadge(target, per, className, containerSelector);
+        item.dataset.tbBadgeInjected = '1';
+        any = true;
+      });
+      return any;
+    };
+  
+    const collectNodes = selectors => {
+      const nodes = [];
+      selectors.forEach(sel => {
+        if (!sel) return;
+        document.querySelectorAll(sel).forEach(node => nodes.push(node));
+      });
+      return [...new Set(nodes)];
+    };
+  
+    const appendDetailBadges = ({ priceNodes, areaRoot, area, className, fallbackPrice }) => {
+      if (!priceNodes.length) return false;
+      let parsedArea = area;
+      if (!parsedArea) {
+        const info = findValue(areaRoot, ['専有面積', '面積']);
+        parsedArea = parseArea(info && info.text);
+      }
+      if (!parsedArea) return false;
+      let any = false;
+      priceNodes.forEach(priceNode => {
+        if (priceNode.querySelector('.tb')) return;
+        const price = parsePrice(norm(priceNode.textContent));
+        const resolvedPrice = price || fallbackPrice;
+        if (!resolvedPrice) return;
+        const per = resolvedPrice / parsedArea.tsubo / 10000;
+        if (priceNode.style) {
+          priceNode.style.whiteSpace = 'normal';
+          if (getComputedStyle(priceNode).display === 'inline') priceNode.style.display = 'inline-block';
+        }
+        appendBadge(priceNode, per, className, null);
+        any = true;
+      });
+      return any;
+    };
+  
+    const athomeListFallback = new Map();
+    let athomeDetailArea = null;
+    let athomeDetailPrice = null;
+    const stateScript = document.querySelector('#serverApp-state');
+    if (stateScript) {
+      try {
+        const state = JSON.parse(stateScript.textContent || '{}');
+        const listKey = Object.keys(state).find(k => k.includes('/bukken/list/'));
+        if (listKey && state[listKey] && state[listKey].body) {
+          const listData = JSON.parse(state[listKey].body).data?.bukkenData?.bukkenList;
+          if (Array.isArray(listData)) {
+            listData.forEach(item => {
+              const id = item?.bukkenNo;
+              if (!id) return;
+              const price = parsePrice(item?.kakaku ? item.kakaku + '万円' : null);
+              let area = null;
+              if (item?.areaInfo) {
+                area = parseArea(item.areaInfo.tsubo || item.areaInfo.area);
+              }
+              athomeListFallback.set(id, { price, area });
+            });
+          }
+        }
+        const detailKey = Object.keys(state).find(k => k.includes('property-detail-ryutsu'));
+        if (detailKey && state[detailKey] && state[detailKey].body) {
+          const data = JSON.parse(state[detailKey].body).data;
+          const areaInfo = data?.propertyData?.areaInfo;
+          const contractPrice = data?.propertyData?.contract?.price?.price;
+          if (areaInfo) {
+            if (areaInfo.tsubo) {
+              const tsubo = parseFloat(areaInfo.tsubo.replace(/[^\d.]/g, ''));
+              if (!Number.isNaN(tsubo)) athomeDetailArea = { tsubo, sqm: areaInfo.area ? parseFloat(areaInfo.area.replace(/[^\d.]/g, '')) || tsubo * TUBO : tsubo * TUBO };
+            } else if (areaInfo.area) {
+              const sqm = parseFloat(areaInfo.area.replace(/[^\d.]/g, ''));
+              if (!Number.isNaN(sqm)) athomeDetailArea = { sqm, tsubo: sqm / TUBO };
+            }
+          }
+          if (contractPrice) {
+            const numericPrice = Number(contractPrice);
+            if (!Number.isNaN(numericPrice)) athomeDetailPrice = numericPrice;
+          }
+        }
+      } catch (err) {
+        console.warn('athome state parse failed', err);
+      }
+    }
+  
+    appendListBadges({
+      items: [...document.querySelectorAll('li.item.list-tpl, li.item.smartphone-tpl, [component-bukken-list-item], athome-csite-sp-part-bukken-card-ryutsu-sell-living')],
+      priceLabels: ['価格'],
+      areaLabels: ['専有面積', '面積'],
+      className: 'tb',
+      containerSelector: 'td.value,dd',
+      fallbackMap: athomeListFallback
+    });
+  
+    appendListBadges({
+      items: [...document.querySelectorAll('#js-bukkenList .property_unit, .bukken-cassette__body')],
+      priceLabels: ['販売価格', '価格'],
+      areaLabels: ['専有面積', '面積'],
+      className: 'tb tb-s',
+      containerSelector: 'dd,td.value,.dottable-value,.property_unit-info,.bukken-cassette__kakaku,.bukken-cassette__menseki',
+      fallbackMap: athomeListFallback
+    });
+  
+    const athomeCards = [...document.querySelectorAll('.card-box')];
+    if (athomeCards.length) {
+      athomeCards.forEach(card => {
+        if (card.dataset.tbBadgeInjected === '1') return;
+        if (card.querySelector('.tb')) return;
+        const priceEl = card.querySelector('.property-price');
+        const areaBlock = [...card.querySelectorAll('.property-detail-table__block')].find(block => {
+          const label = block.querySelector('strong');
+          return label && norm(label.textContent).includes('専有面積');
+        });
+        const areaText = areaBlock && areaBlock.textContent;
+        let price = parsePrice(priceEl && priceEl.textContent);
+        let area = parseArea(areaText);
+        if ((!price || !area) && athomeListFallback.size) {
+          const cardId = card.querySelector('input[id]')?.id || card.querySelector('[data-bukken-no]')?.getAttribute('data-bukken-no');
+          if (cardId && athomeListFallback.has(cardId)) {
+            const extra = athomeListFallback.get(cardId);
+            if (!price && extra.price) price = extra.price;
+            if (!area && extra.area) area = extra.area;
+          }
+        }
+        if (!price || !area || !priceEl) return;
+        appendBadge(priceEl, price / area.tsubo / 10000, 'tb tb-a', null);
+        card.dataset.tbBadgeInjected = '1';
+      });
+    }
+  
+    if (isSekisui) {
+      const sekisuiListItems = [...document.querySelectorAll('.estateBlock_list > li')];
+      sekisuiListItems.forEach(item => {
+        if (item.dataset.tbBadgeInjected === '1') return;
+        if (!item.querySelector('.estate')) return;
+        if (item.querySelector('.tb')) {
+          item.dataset.tbBadgeInjected = '1';
+          return;
+        }
+        const priceContainer = item.querySelector('.estate dl dd');
+        const price = parsePrice(priceContainer && priceContainer.textContent);
+        const areaCandidate = [...item.querySelectorAll('.estate ul li')].find(li => /[㎡m²坪]/.test(li.textContent || ''));
+        const area = parseArea(areaCandidate && areaCandidate.textContent);
+        if (!price || !area) return;
+        const target = priceContainer || areaCandidate || item;
+        appendBadge(target, price / area.tsubo / 10000, 'tb tb-s', null);
+        item.dataset.tbBadgeInjected = '1';
+      });
+    }
+  
+    const isDetailPage = isAthome ? !!athomeDetailHost : (isSekisui ? isSekisuiDetail : true);
+  
+    if (isDetailPage) {
+      const basePriceSelectors = ['span.price-area'];
+      if (isAthome) basePriceSelectors.push('p.price-main');
+      if (isSekisui) basePriceSelectors.push('.estateInfo_detail .priceArea');
+      appendDetailBadges({
+        priceNodes: collectNodes(basePriceSelectors),
+        areaRoot: document,
+        className: 'tb'
+      });
+  
+      const detailPriceNode = isAthome ? document.querySelector('.property-summary__list .rent') : null;
+      if (!athomeDetailPrice && detailPriceNode) {
+        const parsed = parsePrice(norm(detailPriceNode.textContent));
+        if (parsed) athomeDetailPrice = parsed;
+      }
+  
+      const detailAreaCandidates = [
+        document.querySelector('.futureInfo'),
+        document.querySelector('.detail-sum-table'),
+        document.querySelector('.property-summary__list'),
+        document.querySelector('.bukken-detail__table'),
+        document.querySelector('[component-page__basic-info-table]'),
+        document
+      ];
+      let detailAreaRoot = null;
+      for (const root of detailAreaCandidates) {
+        if (!root) continue;
+        const info = findValue(root, ['専有面積', '面積']);
+        if (info && parseArea(info.text)) {
+          detailAreaRoot = root;
+          break;
+        }
+      }
+  
+      let detailArea = null;
+      const futureInfoAreaNode = document.querySelector('.futureInfo_menseki_disp');
+      detailArea = parseArea(futureInfoAreaNode && futureInfoAreaNode.textContent);
+      if (!detailArea && detailAreaRoot) {
+        const info = findValue(detailAreaRoot, ['専有面積', '面積']);
+        detailArea = parseArea(info && info.text);
+      }
+      if (!detailArea) {
+        const info = findValue(document, ['専有面積']);
+        detailArea = parseArea(info && info.text);
+      }
+  
+      if (athomeDetailArea) {
+        detailArea = athomeDetailArea;
+      }
+  
+      if (detailArea) {
+        const priceSelectors = [
+          'p.mt7.b',
+          '.bukken-detail__price',
+          '.bukken-detail__price-value',
+          '.futureInfo_list.futureInfo_kakaku',
+          '.futureInfo .card-price',
+          '[component-property-info-header] .card-price'
+        ];
+        if (isAthome) priceSelectors.push('.property-summary__list .rent', 'p.price-main');
+        if (isSekisui) priceSelectors.push('.estateInfo_detail .priceArea');
+        const priceNodes = collectNodes(priceSelectors);
+  
+        appendDetailBadges({
+          priceNodes,
+          areaRoot: detailAreaRoot || document,
+          area: detailArea,
+          className: 'tb tb-s',
+          fallbackPrice: athomeDetailPrice
+        });
+  
+        if (isAthome && athomeDetailPrice && detailArea.tsubo) {
+          const per = athomeDetailPrice / detailArea.tsubo / 10000;
+          const extraSelectors = [
+            '.property-detail-top-area .card-price',
+            '.property-info__price',
+            '.property-detail-top-area [class*="price"]',
+            '.main-contents__box .card-price'
+          ];
+          extraSelectors.unshift('p.price-main');
+          const extraTargets = collectNodes(extraSelectors);
+          let appended = false;
+          for (const target of extraTargets) {
+            if (!target) continue;
+            if (target.querySelector('.tb')) {
+              appended = true;
+              break;
+            }
+            appendBadge(target, per, 'tb tb-a', null);
+            if (target.querySelector('.tb')) {
+              appended = true;
+              break;
+            }
+          }
+          if (!appended) {
+            const fallbackHost = document.querySelector('.property-detail-top-area') || document.body;
+            const container = document.createElement('div');
+            container.style.marginTop = '8px';
+            fallbackHost.insertBefore(container, fallbackHost.firstChild);
+            appendBadge(container, per, 'tb tb-a', null);
+          }
+        }
+      }
+    }
+  };
 
   let scheduled = false;
   const schedule = () => {
