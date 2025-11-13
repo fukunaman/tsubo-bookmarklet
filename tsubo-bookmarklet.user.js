@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name         坪単価バッジ（Athome/Fureins/SUUMO/積水ハウス）
+// @name         坪単価バッジ（Athome/Fureins/SUUMO/積水ハウス/三井のリハウス）
 // @namespace    https://github.com/s
 // @version      1.0.5
-// @description  Athome・ふれんず・SUUMO・積水ハウス不動産で坪単価バッジを自動表示します
+// @description  Athome・ふれんず・SUUMO・積水ハウス・三井のリハウス不動産で坪単価バッジを自動表示します
 // @match        https://www.athome.co.jp/*
 // @match        https://m.athome.co.jp/*
 // @match        https://www.f-takken.com/freins/*
 // @match        https://suumo.jp/*
 // @match        https://sumusite.sekisuihouse.co.jp/*
+// @match        https://www.rehouse.co.jp/*
 // @grant        none
 // @run-at       document-end
 
@@ -122,6 +123,8 @@
     const isAthomeList = !!athomeListHost && !athomeDetailHost;
     const isSekisui = location.hostname === 'sumusite.sekisuihouse.co.jp';
     const isSekisuiDetail = isSekisui && !!document.querySelector('.estateInfo_detail');
+    const isRehouse = /(?:^|\.)rehouse\.co\.jp$/.test(location.hostname);
+    const isRehouseDetail = isRehouse && /\/buy\/mansion\/bkdetail\//.test(location.pathname);
   
     const appendListBadges = ({ items, priceLabels, areaLabels, className, containerSelector, fallbackMap }) => {
       if (isAthomeList && className === 'tb') return false;
@@ -306,13 +309,36 @@
         item.dataset.tbBadgeInjected = '1';
       });
     }
+
+    if (isRehouse && isRehouseDetail) {
+      const priceElements = [...document.querySelectorAll('.property-detail-overview-price, .price-value, .price-display, .price-amount, [class*="price"]')].filter(el => 
+        /[0-9]+(,?[0-9]+)*万円/.test(el.textContent)
+      );
+      const areaElements = [...document.querySelectorAll('.property-detail-overview-area, .area-value, .area-display, [class*="area"], [class*="menseki"]')].filter(el => 
+        /[0-9.]+(㎡|m²|坪)/.test(el.textContent)
+      );
+      
+      if (priceElements.length && areaElements.length) {
+        const price = parsePrice(priceElements[0].textContent);
+        const area = parseArea(areaElements[0].textContent);
+        
+        if (price && area) {
+          const per = price / area.tsubo / 10000;
+          const target = priceElements[0];
+          if (!target.querySelector('.tb')) {
+            appendBadge(target, per, 'tb', null);
+          }
+        }
+      }
+    }
   
-    const isDetailPage = isAthome ? !!athomeDetailHost : (isSekisui ? isSekisuiDetail : true);
+    const isDetailPage = isAthome ? !!athomeDetailHost : (isSekisui ? isSekisuiDetail : (isRehouse ? isRehouseDetail : true));
   
     if (isDetailPage) {
       const basePriceSelectors = ['span.price-area'];
       if (isAthome) basePriceSelectors.push('p.price-main');
       if (isSekisui) basePriceSelectors.push('.estateInfo_detail .priceArea');
+      if (isRehouse) basePriceSelectors.push('.property-overview__price', '.price-main', '.price-section .price-value');
       appendDetailBadges({
         priceNodes: collectNodes(basePriceSelectors),
         areaRoot: document,
@@ -370,6 +396,7 @@
         ];
         if (isAthome) priceSelectors.push('.property-summary__list .rent', 'p.price-main');
         if (isSekisui) priceSelectors.push('.estateInfo_detail .priceArea');
+        if (isRehouse) priceSelectors.push('.property-overview__price', '.price-main', '.price-section .price-value');
         const priceNodes = collectNodes(priceSelectors);
   
         appendDetailBadges({
