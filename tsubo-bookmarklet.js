@@ -420,12 +420,44 @@
       }
 
       if (isSuumo) {
-        appendListBadges({
-          items: [...document.querySelectorAll('.cassetteitem')],
-          priceLabels: ['.cassetteitem_price--cell'],
-          areaLabels: ['.cassetteitem_menseki'],
-          className: 'tb tb-s',
-          containerSelector: '.cassetteitem_detail-col1',
+        const cassetteItems = [...document.querySelectorAll('.cassetteitem')];
+        cassetteItems.forEach(item => {
+            if (item.dataset.tbBadgeInjected === '1' || item.querySelector('.tb')) return;
+
+            const priceEl = item.querySelector('.cassetteitem_price--cell');
+            const areaEl = item.querySelector('.cassetteitem_menseki');
+
+            if (priceEl && areaEl) {
+                const price = parsePrice(norm(priceEl.textContent));
+                const area = parseArea(norm(areaEl.textContent));
+
+                if (price && area && area.tsubo > 0) {
+                    const per = price / area.tsubo / 10000;
+                    const target = item.querySelector('.cassetteitem_detail-col1') || priceEl;
+                    appendBadge(target, per, 'tb tb-s', null);
+                    item.dataset.tbBadgeInjected = '1';
+                }
+            }
+        });
+
+        const cassetteListItems = [...document.querySelectorAll('.cassettelist_item')];
+        cassetteListItems.forEach(item => {
+            if (item.dataset.tbBadgeInjected === '1' || item.querySelector('.tb')) return;
+
+            const priceEl = item.querySelector('.cassettelist_info-desc-caution');
+            const areaLabelEl = [...item.querySelectorAll('div')].find(el => norm(el.textContent).startsWith('専有面積'));
+            const areaEl = areaLabelEl ? areaLabelEl.querySelector('.cassettelist_info-desc-strong') : null;
+
+            if (priceEl && areaEl) {
+                const price = parsePrice(norm(priceEl.textContent));
+                const area = parseArea(norm(areaEl.textContent));
+
+                if (price && area && area.tsubo > 0) {
+                    const per = price / area.tsubo / 10000;
+                    appendBadge(priceEl, per, 'tb tb-s', null);
+                    item.dataset.tbBadgeInjected = '1';
+                }
+            }
         });
 
         const isSuumoDetail = location.pathname.includes('/ms/');
