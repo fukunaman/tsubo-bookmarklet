@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         坪単価バッジ（Athome & ふれんず & SUUMO & 積水ハウス & 三井のリハウス）
 // @namespace    https://github.com/s
-// @version      1.0.0
+// @version      1.0.1
 // @description  Athome/ふれんず/SUUMO/積水ハウス/三井のリハウスで坪単価バッジを自動表示します
 // @match        https://www.athome.co.jp/*
 // @match        https://m.athome.co.jp/*
@@ -53,16 +53,24 @@
       };
       const parseArea = text => {
         if (!text) return null;
-        const normalized = text.replace(/㎡/g, 'm2').replace(/m²/g, 'm2');
-        let sqm = null;
-        const sqmMatch = normalized.match(/([\d.,]+)m2/i);
-        if (sqmMatch) sqm = parseFloat(sqmMatch[1].replace(/,/g, ''));
-        let tsubo = null;
+        const normalized = text.replace(/㎡|m²|平米/g, 'm2');
+
         const tsuboMatch = normalized.match(/([\d.,]+)\s*坪/);
-        if (tsuboMatch) tsubo = parseFloat(tsuboMatch[1].replace(/,/g, ''));
-        if (!tsubo && sqm) tsubo = sqm / TUBO;
-        if (tsubo && !sqm) sqm = tsubo * TUBO;
-        return tsubo ? { sqm, tsubo } : null;
+        if (tsuboMatch) {
+          const tsubo = parseFloat(tsuboMatch[1].replace(/,/g, ''));
+          const sqmMatch = normalized.match(/([\d.,]+)\s*m2/i);
+          const sqm = sqmMatch ? parseFloat(sqmMatch[1].replace(/,/g, '')) : tsubo * TUBO;
+          return { sqm, tsubo };
+        }
+
+        const sqmMatch = normalized.match(/([\d.,]+)\s*m2/i);
+        if (sqmMatch) {
+          const sqm = parseFloat(sqmMatch[1].replace(/,/g, ''));
+          const tsubo = sqm / TUBO;
+          return { sqm, tsubo };
+        }
+
+        return null;
       };
 
       const matchLabel = (nodes, label, nextSelector) => {
@@ -345,58 +353,83 @@
       }
 
       if (isSuumoLibrary) {
-        console.debug('[tsubo-debug] Processing SUUMO library page');
-        
-        // More comprehensive row selection
-        const allRows = [...document.querySelectorAll('table tr, .property-row, .listing-row')];
-        console.debug('[tsubo-debug] Found rows:', allRows.length);
-        
-        allRows.forEach((row, index) => {
-          if (row.dataset.tbBadgeInjected === '1') return;
-          if (row.querySelector('.tb')) return;
+        // --- Strategy 1: Handle the table-based tr.caseBukken structure ---
+        console.debug('[tsubo-debug] SUUMO Library: Processing tr.caseBukken');
+        const tableRows = [...document.querySelectorAll('tr.caseBukken')];
+        tableRows.forEach((row, index) => {
+          if (row.dataset.tbBadgeInjected === '1' || row.querySelector('.tb')) return;
           
-          const cells = [...row.querySelectorAll('td, .cell, .data-cell')];
+          const cells = [...row.querySelectorAll('td')];
           if (cells.length < 2) return;
-          
-          let priceCell = null;
-          let areaCell = null;
+
           let priceText = '';
           let areaText = '';
-          
-          // Search for price and area in all cells
+          let priceCell = null;
+          let areaCell = null;
+
           for (const cell of cells) {
             const text = norm(cell.textContent);
-            
-            // More flexible price matching
-            if (!priceCell && (/[0-9,]+万円/.test(text) || /[0-9,]+億/.test(text))) {
-              // Skip rent prices for used property calculation
-              if (!text.includes('賃料') && !text.includes('月') && !text.includes('円/月')) {
-                priceCell = cell;
+            if (!priceText && (/[0-9,]+万円/.test(text) || /[0-9,]+億/.test(text))) {
+              if (!text.includes('賃料')) {
                 priceText = text;
+                priceCell = cell;
               }
             }
-            
-            // More flexible area matching
-            if (!areaCell && (/[0-9.]+㎡|[0-9.]+平米|[0-9.]+m[2²]/.test(text))) {
-              areaCell = cell;
+            if (!areaText && /[0-9.]+㎡|[0-9.]+平米|[0-9.]+m[2²]/.test(text)) {
               areaText = text;
+              areaCell = cell;
             }
           }
-          
-          console.debug(`[tsubo-debug] Row ${index}: price="${priceText}", area="${areaText}"`);
-          
-          if (priceCell && areaCell) {
+
+          if (priceText && areaText) {
             const price = parsePrice(priceText);
             const area = parseArea(areaText);
-            
-            console.debug(`[tsubo-debug] Row ${index} parsed: price=${price}, area=${area?.tsubo}`);
-            
             if (price && area && area.tsubo > 0) {
               const per = price / area.tsubo / 10000;
-              console.debug(`[tsubo-debug] Row ${index} tsubo price: ${per.toFixed(1)}万円/坪`);
-              appendBadge(priceCell, per, 'tb', null);
+              const target = priceCell || areaCell || row;
+              appendBadge(target, per, 'tb', null);
               row.dataset.tbBadgeInjected = '1';
             }
+          }
+        });
+
+        // --- Strategy 2: Handle the div-based .property_unit structure ---
+        console.debug('[tsubo-debug] SUUMO Library: Processing .property_unit');
+        const propUnits = [...document.querySelectorAll('.property_unit')];
+        propUnits.forEach((row, index) => {
+          if (row.dataset.tbBadgeInjected === '1' || row.querySelector('.tb')) return;
+          const wholeText = norm(row.textContent);
+          if (wholeText.includes('賃料') || !wholeText.includes('円')) return;
+
+          let priceText = '';
+          let areaText = '';
+          let priceCell = null;
+          let areaCell = null;
+          
+          const cells = [...row.querySelectorAll('.property_unit-price-value, .property_unit-spec-item')];
+          for (const cell of cells) {
+            const text = norm(cell.textContent);
+            if (!priceText && (/[0-9,]+万円/.test(text) || /[0-9,]+億/.test(text))) {
+              priceText = text;
+              priceCell = cell;
+            }
+            if (!areaText && /[0-9.]+㎡|[0-9.]+平米|[0-9.]+m[2²]/.test(text)) {
+              areaText = text;
+              areaCell = cell;
+            }
+          }
+
+          if (!priceText) priceText = wholeText;
+          if (!areaText) areaText = wholeText;
+
+          const price = parsePrice(priceText);
+          const area = parseArea(areaText);
+
+          if (price && area && area.tsubo > 0) {
+            const per = price / area.tsubo / 10000;
+            const target = priceCell || areaCell || row.querySelector('[class*="price"]') || row;
+            appendBadge(target, per, 'tb', null);
+            row.dataset.tbBadgeInjected = '1';
           }
         });
       }
