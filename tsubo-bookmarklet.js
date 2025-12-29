@@ -21,6 +21,10 @@
       const yen = cleaned.replace(/[^\d]/g, '');
       if (yen) total += parseInt(yen, 10);
     }
+    // Debug log for SUUMO library
+    if (location.pathname.includes('/library/') && text.includes('万')) {
+      console.log('[tsubo-debug] Price parsing:', text, '->', total);
+    }
     return total || null;
   };
   const parseArea = text => {
@@ -110,6 +114,8 @@
   const isSekisuiDetail = isSekisui && !!document.querySelector('.estateInfo_detail');
   const isRehouse = /(?:^|\.)rehouse\.co\.jp$/.test(location.hostname);
   const isRehouseDetail = isRehouse && /\/buy\/mansion\/bkdetail\//.test(location.pathname);
+  const isSuumo = /(?:^|\.)suumo\.jp$/.test(location.hostname);
+  const isSuumoLibrary = isSuumo && /\/library\//.test(location.pathname);
 
   const appendListBadges = ({ items, priceLabels, areaLabels, className, containerSelector, fallbackMap }) => {
     if (isAthomeList && className === 'tb') return false;
@@ -292,6 +298,63 @@
       const target = priceContainer || areaCandidate || item;
       appendBadge(target, price / area.tsubo / 10000, 'tb tb-s', null);
       item.dataset.tbBadgeInjected = '1';
+    });
+  }
+
+  if (isSuumoLibrary) {
+    console.log('[tsubo-debug] Processing SUUMO library page');
+    
+    // More comprehensive row selection
+    const allRows = [...document.querySelectorAll('table tr, .property-row, .listing-row')];
+    console.log('[tsubo-debug] Found rows:', allRows.length);
+    
+    allRows.forEach((row, index) => {
+      if (row.dataset.tbBadgeInjected === '1') return;
+      if (row.querySelector('.tb')) return;
+      
+      const cells = [...row.querySelectorAll('td, .cell, .data-cell')];
+      if (cells.length < 2) return;
+      
+      let priceCell = null;
+      let areaCell = null;
+      let priceText = '';
+      let areaText = '';
+      
+      // Search for price and area in all cells
+      for (const cell of cells) {
+        const text = norm(cell.textContent);
+        
+        // More flexible price matching
+        if (!priceCell && (/[0-9,]+万円/.test(text) || /[0-9,]+億/.test(text))) {
+          // Skip rent prices for used property calculation
+          if (!text.includes('賃料') && !text.includes('月') && !text.includes('円/月')) {
+            priceCell = cell;
+            priceText = text;
+          }
+        }
+        
+        // More flexible area matching
+        if (!areaCell && (/[0-9.]+㎡|[0-9.]+平米|[0-9.]+m[2²]/.test(text))) {
+          areaCell = cell;
+          areaText = text;
+        }
+      }
+      
+      console.log(`[tsubo-debug] Row ${index}: price="${priceText}", area="${areaText}"`);
+      
+      if (priceCell && areaCell) {
+        const price = parsePrice(priceText);
+        const area = parseArea(areaText);
+        
+        console.log(`[tsubo-debug] Row ${index} parsed: price=${price}, area=${area?.tsubo}`);
+        
+        if (price && area && area.tsubo > 0) {
+          const per = price / area.tsubo / 10000;
+          console.log(`[tsubo-debug] Row ${index} tsubo price: ${per.toFixed(1)}万円/坪`);
+          appendBadge(priceCell, per, 'tb', null);
+          row.dataset.tbBadgeInjected = '1';
+        }
+      }
     });
   }
 
